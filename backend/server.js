@@ -1,54 +1,28 @@
-// server.js (Node.js + Express)
-const express = require('express');
-const axios = require('axios');
-const cors = require('cors');
-require('dotenv').config();
+import express from 'express';
+import cors from 'cors';
+import dotenv from 'dotenv';
+import hubspotRoutes from './routes/hubspotRoutes.js';
+
+dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Enable CORS for your React app's origin
+// Middleware
 app.use(cors({
-  origin: 'http://localhost:5173' // Your React app's URL
+  origin: process.env.REACT_APP_URL || 'http://localhost:5173'
 }));
+app.use(express.json());
 
-// HubSpot API proxy endpoint
-app.get('/api/hubspot/contacts', async (req, res) => {
-  try {
-    const TOKEN = process.env.HUBSPOT_TOKEN; // Store token in environment variable
-    
-    const response = await axios({
-      method: 'get',
-      url: 'https://api.hubapi.com/crm/v3/objects/contacts',
-      headers: {
-        Authorization: `Bearer ${TOKEN}`,
-        'Content-Type': 'application/json'
-      },
-      params: {
-        properties: 'firstname,lastname,email,phone,address,project_role',
-        limit: 100
-      }
-    });
-    
-    res.json(response.data);
-  } catch (error) {
-    console.error('Error proxying request to HubSpot:', error);
-    
-    if (error.response) {
-      res.status(error.response.status).json({
-        error: `HubSpot API error: ${error.response.status}`,
-        message: error.response.data
-      });
-    } else {
-      res.status(500).json({
-        error: 'Internal Server Error',
-        message: error.message
-      });
-    }
-  }
+// Routes
+app.use('/api/hubspot', hubspotRoutes);
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({ error: 'Internal Server Error' });
 });
 
 app.listen(PORT, () => {
   console.log(`Proxy server running on port ${PORT}`);
 });
-

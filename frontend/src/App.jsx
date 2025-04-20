@@ -2,7 +2,84 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import ContactsMap from './components/ContactsMap';
 import Filters from './components/Filters';
+import MapLegend from './components/MapLegend';
+import ContactSuggestions from './components/ContactSuggestions';
 import { geocodeAddress } from './utils/geocoding';
+
+
+const RoleIcon = ({ role }) => {
+  const roleIcons = {
+    'Contractor': { color: '#3388ff', shape: 'star' },
+    'Home Owner': { color: '#33cc33', shape: 'home' },
+    'Affiliate': { color: '#ffcc00', shape: 'circle' },
+    'Referral Partner': { color: '#9933cc', shape: 'diamond' },
+    'Community Partner': { color: '#ff9900', shape: 'square' },
+    'Geo Tech': { color: '#ff66cc', shape: 'triangle' }
+  };
+
+  const config = roleIcons[role] || { color: '#ff0000', shape: 'circle' };
+  const { color, shape } = config;
+  const size = 12;
+  const halfSize = size / 2;
+  
+  switch (shape) {
+    case 'star':
+      const points = [
+        [halfSize, 0],
+        [halfSize * 0.7, halfSize * 0.7],
+        [0, halfSize * 0.8],
+        [halfSize * 0.6, halfSize * 1.2],
+        [halfSize * 0.4, size],
+        [halfSize, halfSize * 1.4],
+        [halfSize * 1.6, size],
+        [halfSize * 1.4, halfSize * 1.2],
+        [size, halfSize * 0.8],
+        [halfSize * 1.3, halfSize * 0.7]
+      ].map(point => point.join(',')).join(' ');
+      return (
+        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+          <polygon points={points} fill={color} stroke="white" strokeWidth="0.5" />
+        </svg>
+      );
+      
+    case 'triangle':
+      return (
+        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+          <polygon points={`${halfSize},0 ${size},${size} 0,${size}`} fill={color} stroke="white" strokeWidth="0.5" />
+        </svg>
+      );
+      
+    case 'square':
+      return (
+        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+          <rect x="0" y="0" width={size} height={size} fill={color} stroke="white" strokeWidth="0.5" />
+        </svg>
+      );
+      
+    case 'diamond':
+      return (
+        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+          <polygon points={`${halfSize},0 ${size},${halfSize} ${halfSize},${size} 0,${halfSize}`} fill={color} stroke="white" strokeWidth="0.5" />
+        </svg>
+      );
+      
+    case 'home':
+      return (
+        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+          <polygon points={`${halfSize},0 ${size},${halfSize} ${size},${size} 0,${size} 0,${halfSize}`} fill={color} stroke="white" strokeWidth="0.5" />
+          <rect x={size/3} y={size*0.6} width={size/3} height={size*0.4} fill="white" />
+        </svg>
+      );
+      
+    case 'circle':
+    default:
+      return (
+        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+          <circle cx={halfSize} cy={halfSize} r={halfSize-0.5} fill={color} stroke="white" strokeWidth="0.5" />
+        </svg>
+      );
+  }
+};
 
 function App() {
   const [contacts, setContacts] = useState([]);
@@ -10,11 +87,9 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   
-  // Filter states
   const [selectedRoles, setSelectedRoles] = useState([]);
   const [locationFilter, setLocationFilter] = useState('');
 
-  // Available project roles
   const projectRoles = [
     'Contractor',
     'Home Owner',
@@ -24,7 +99,27 @@ function App() {
     'Geo Tech'
   ];
 
-  // Fetch contacts from your backend proxy
+  const roleIcons = {
+    'Contractor': { color: '#3388ff', shape: 'star' },
+    'Home Owner': { color: '#33cc33', shape: 'home' },
+    'Affiliate': { color: '#ffcc00', shape: 'circle' },
+    'Referral Partner': { color: '#9933cc', shape: 'diamond' },
+    'Community Partner': { color: '#ff9900', shape: 'square' },
+    'Geo Tech': { color: '#ff66cc', shape: 'triangle' }
+  };
+
+  const processRoles = (roleString) => {
+    if (!roleString) return [];
+    
+    const roles = roleString
+      .split(/[,;:]/)
+      .map(role => role.trim())
+      .filter(role => role.length > 0);
+    
+    return roles;
+  };
+
+  
   useEffect(() => {
     const fetchContacts = async () => {
       try {
@@ -32,7 +127,6 @@ function App() {
         
         console.log('Fetching contacts from HubSpot API via backend proxy...');
         
-        // Use your backend proxy endpoint
         const response = await axios.get('http://localhost:3000/api/hubspot/contacts');
         
         console.log('HubSpot API response:', response);
@@ -41,14 +135,12 @@ function App() {
           throw new Error('Invalid response format from HubSpot API');
         }
         
-        // Process HubSpot contacts
         const hubspotContacts = response.data.results.map(contact => {
           const properties = contact.properties;
           
-          // Check if project_role property exists in HubSpot
           let contactRoles = [];
           if (properties.project_role) {
-            contactRoles = properties.project_role.split(',').map(role => role.trim());
+            contactRoles = processRoles(properties.project_role);
           } else {
             const randomRoleIndex = Math.floor(Math.random() * projectRoles.length);
             contactRoles = [projectRoles[randomRoleIndex]];
@@ -67,7 +159,7 @@ function App() {
           };
         });
         
-        // Process contacts to add coordinates
+        
         const contactsWithCoordinates = [];
         
         for (let i = 0; i < hubspotContacts.length; i++) {
@@ -88,7 +180,7 @@ function App() {
               coordinates
             });
             
-            // Update state progressively
+
             if (i % 5 === 0 || i === hubspotContacts.length - 1) {
               setContacts([...contactsWithCoordinates]);
               setFilteredContacts([...contactsWithCoordinates]);
@@ -133,23 +225,24 @@ function App() {
     fetchContacts();
   }, []);
 
-  // Apply filters when filter state changes
+
   useEffect(() => {
     filterContacts();
   }, [selectedRoles, locationFilter, contacts]);
 
-  // Filter contacts based on selected roles and location
+
   const filterContacts = () => {
     let filtered = [...contacts];
     
-    // Filter by roles if any are selected
     if (selectedRoles.length > 0) {
-      filtered = filtered.filter(contact => 
-        contact.projectRoles && contact.projectRoles.some(role => selectedRoles.includes(role))
-      );
+      filtered = filtered.filter(contact => {
+
+        if (!contact.projectRoles) return false;
+        
+        return contact.projectRoles.some(role => selectedRoles.includes(role));
+      });
     }
     
-    // Filter by location if entered
     if (locationFilter.trim()) {
       const locationLower = locationFilter.toLowerCase();
       filtered = filtered.filter(contact => 
@@ -157,10 +250,13 @@ function App() {
       );
     }
     
+    console.log("Filtered contacts:", filtered.length);
+    console.log("Selected roles:", selectedRoles);
+    
     setFilteredContacts(filtered);
   };
 
-  // Handle role selection changes
+  // Handle role selection/deselection
   const handleRoleChange = (role) => {
     setSelectedRoles(prev => {
       if (prev.includes(role)) {
@@ -171,7 +267,7 @@ function App() {
     });
   };
 
-  // Handle location filter changes
+  // Handle location filter change
   const handleLocationChange = (event) => {
     setLocationFilter(event.target.value);
   };
@@ -214,13 +310,48 @@ function App() {
         onLocationChange={handleLocationChange}
       />
       
-      <div className="flex-1 relative">
-        {contacts.length > 0 && (
-          <ContactsMap 
-            contacts={filteredContacts} 
-            projectRoles={projectRoles}
-          />
-        )}
+      <div className="flex flex-col md:flex-row h-full">
+        {/* Left side: Map and Legend */}
+        <div className="relative flex-1 min-h-[400px]">
+          {contacts.length > 0 && (
+            <ContactsMap 
+              contacts={filteredContacts} 
+              projectRoles={projectRoles}
+            />
+          )}
+        </div>
+        
+        {/* Right side: Suggestions and Legend */}
+        <div className="w-full md:w-96 flex flex-col overflow-auto">
+          {/* Fixed legend at the top */}
+          <div className="bg-white p-3 border-b border-gray-200 sticky top-0 z-10">
+            <h4 className="text-sm font-bold mb-2">Project Roles</h4>
+            <div className="flex flex-wrap gap-2">
+              {projectRoles.map(role => {
+                const iconConfig = roleIcons[role];
+                if (!iconConfig) return null;
+                
+                return (
+                  <div key={role} className="flex items-center mr-2 mb-1">
+                    <div className="mr-1">
+                      <RoleIcon role={role} />
+                    </div>
+                    <span className="text-xs">{role}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+          
+          {/* Scrollable suggestions */}
+          <div className="flex-1 overflow-auto">
+            <ContactSuggestions 
+              contacts={contacts}
+              selectedRoles={selectedRoles}
+              locationFilter={locationFilter}
+            />
+          </div>
+        </div>
       </div>
     </div>
   );
